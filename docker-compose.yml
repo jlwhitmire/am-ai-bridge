@@ -1,0 +1,35 @@
+# AM-AI read-only MCP bridge.
+#
+# Published port is bound to 127.0.0.1 ONLY — the bridge is never exposed on the
+# LAN. The Abacus agent reaches it exclusively through the outbound Cloudflare
+# tunnel (AM-AI), which connects to http://localhost:3102 on this host.
+#
+# extra_hosts maps host.docker.internal -> the host gateway so the container can
+# reach Ollama (default OLLAMA_URL=http://host.docker.internal:11434).
+services:
+  mcp-bridge:
+    build: .
+    image: am-ai-mcp-bridge:latest
+    container_name: am-ai-mcp-bridge
+    restart: always
+    # Bind to loopback only. Do NOT change to 0.0.0.0 — that would expose it on the LAN.
+    ports:
+      - "127.0.0.1:3102:3102"
+    environment:
+      MCP_PORT: "3102"
+      MCP_BEARER_TOKEN: "${MCP_BEARER_TOKEN}"
+      OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+      APP_LOG_FILE: "${APP_LOG_FILE:-}"
+      DISK_PATH: "${DISK_PATH:-/}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Optional: mount the app log read-only so tail_app_logs can read it.
+    # volumes:
+    #   - "${APP_LOG_HOST_PATH:-/var/log/openwebui.log}:${APP_LOG_FILE:-/logs/app.log}:ro"
+    healthcheck:
+      # Node is present in the image; avoids needing curl/wget in Alpine.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3102/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
