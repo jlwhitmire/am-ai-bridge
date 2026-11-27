@@ -12,6 +12,11 @@ services:
     image: am-ai-mcp-bridge:latest
     container_name: am-ai-mcp-bridge
     restart: always
+    # Give this container read-only access to the GPU via the NVIDIA container
+    # runtime so get_gpu_status works. The runtime must be registered with Docker
+    # (nvidia-ctk runtime configure --runtime=docker). Scoped to this service
+    # only; other containers are unaffected.
+    runtime: nvidia
     # Bind to loopback only. Do NOT change to 0.0.0.0 — that would expose it on the LAN.
     ports:
       - "127.0.0.1:3102:3102"
@@ -21,6 +26,9 @@ services:
       OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
       APP_LOG_FILE: "${APP_LOG_FILE:-}"
       DISK_PATH: "${DISK_PATH:-/}"
+      # GPU visibility (also baked into the image; set here for clarity/override).
+      NVIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_DRIVER_CAPABILITIES: "utility"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Optional: mount the app log read-only so tail_app_logs can read it.
